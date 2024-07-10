@@ -20,8 +20,6 @@ def save_gif_PIL(outfile, files, fps=5, loop=0):
     imgs[0].save(fp=outfile, format='GIF', append_images=imgs[1:], save_all=True, duration=int(1000/fps), loop=loop)
 
 def oscillator(d, w0, x):
-    """Defines the analytical solution to the 1D underdamped harmonic oscillator problem.
-    Equations taken from: https://beltoforion.de/en/harmonic_oscillator/"""
     assert d < w0
     w = np.sqrt(w0**2-d**2)
     phi = np.arctan(-d/w)
@@ -33,8 +31,6 @@ def oscillator(d, w0, x):
     return y
 
 class FCN(nn.Module):
-    "Defines a connected network"
-
     def __init__(self, n_input, n_output, n_hidden, n_layers):
         super().__init__()
         activation = nn.Tanh
@@ -55,12 +51,10 @@ class FCN(nn.Module):
 
 d, w0 = 1, 20
 
-# get the analytical solution over the full domain
 x = torch.linspace(0,1,500).view(-1,1)
 y = oscillator(d, w0, x).view(-1,1)
 print(x.shape, y.shape)
 
-# slice out a small number of points from the LHS of the domain
 x_data = x[0:200:10]
 y_data = y[0:200:10]
 print(x_data.shape, y_data.shape)
@@ -72,7 +66,6 @@ plt.legend()
 plt.show()
 
 def plot_result(x,y,x_data,y_data,yh,xp=None):
-    "Pretty plot training results"
     plt.figure(figsize=(8,4))
     plt.plot(x,y, color="grey", alpha=0.8, label="Exact solution")
     plt.plot(x,yh, color="blue", alpha=0.8, label="NN prediction")
@@ -88,19 +81,17 @@ def plot_result(x,y,x_data,y_data,yh,xp=None):
     plt.axis("off")
 
 
-# train standard neural network to fit training data
+# standard neural network
 torch.manual_seed(123)
 model = FCN(1,1,32,3)
 optimizer = torch.optim.Adam(model.parameters(),lr=1e-3)
 for i in range(1000):
     optimizer.zero_grad()
     yh = model(x_data)
-    loss = torch.mean((yh-y_data)**2)# use mean squared error
+    loss = torch.mean((yh-y_data)**2) # mean squared error
     loss.backward()
     optimizer.step()
 
-
-    # plot the result as training progresses
     if (i+1) % 10 == 0:
 
         yh = model(x).detach()
@@ -110,7 +101,7 @@ for i in range(1000):
         if (i+1) % 500 == 0: plt.show()
         else: plt.close("all")
 
-x_physics = torch.linspace(0,1,30).view(-1,1).requires_grad_(True)# sample locations over the problem domain
+x_physics = torch.linspace(0,1,30).view(-1,1).requires_grad_(True)
 mu, k = 2*d, w0**2
 
 torch.manual_seed(123)
@@ -125,18 +116,15 @@ for i in range(20000):
 
     # compute the "physics loss"
     yhp = model(x_physics)
-    dx  = torch.autograd.grad(yhp, x_physics, torch.ones_like(yhp), create_graph=True)[0]# computes dy/dx
-    dx2 = torch.autograd.grad(dx,  x_physics, torch.ones_like(dx),  create_graph=True)[0]# computes d^2y/dx^2
-    physics = dx2 + mu*dx + k*yhp# computes the residual of the 1D harmonic oscillator differential equation
+    dx  = torch.autograd.grad(yhp, x_physics, torch.ones_like(yhp), create_graph=True)[0]
+    dx2 = torch.autograd.grad(dx,  x_physics, torch.ones_like(dx),  create_graph=True)[0]
+    physics = dx2 + mu*dx + k*yhp
     loss2 = (1e-4)*torch.mean(physics**2)
 
-    # backpropagate joint loss
-    loss = loss1 + loss2# add two loss terms together
+    loss = loss1 + loss2 # add two loss terms together
     loss.backward()
     optimizer.step()
 
-
-    # plot the result as training progresses
     if (i+1) % 150 == 0:
 
         yh = model(x).detach()
